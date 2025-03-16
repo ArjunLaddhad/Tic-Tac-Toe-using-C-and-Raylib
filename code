@@ -1,0 +1,169 @@
+#include "raylib.h"
+#include <vector>
+#include <ctime>
+
+const int screenWidth = 400;
+const int screenHeight = 600;
+const int rows = 20;
+const int cols = 10;
+const int cellSize = 30;
+const Color colors[] = {RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE, PINK};
+
+struct Tetromino {
+    int shape[4][4];
+    int x, y;
+    Color color;
+};
+
+Tetromino tetrominoes[] = {
+    {{1, 1, 1, 1,
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0}, 3, 0, BLUE},
+    
+    {{1, 1, 0, 0,
+      1, 1, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0}, 4, 0, YELLOW},
+    
+    {{1, 1, 1, 0,
+      0, 1, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0}, 3, 0, PURPLE},
+};
+
+int grid[rows][cols] = {0};
+Tetromino currentTetromino;
+int score = 0;
+
+void SpawnTetromino() {
+    currentTetromino = tetrominoes[rand() % 3];
+    currentTetromino.x = 3;
+    currentTetromino.y = 0;
+}
+
+bool CheckCollision(int dx, int dy) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (currentTetromino.shape[i][j]) {
+                int newX = currentTetromino.x + j + dx;
+                int newY = currentTetromino.y + i + dy;
+                if (newX < 0 || newX >= cols || newY >= rows || (newY >= 0 && grid[newY][newX]))
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+void RotateTetromino() {
+    int temp[4][4] = {0};
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            temp[j][3 - i] = currentTetromino.shape[i][j];
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            currentTetromino.shape[i][j] = temp[i][j];
+        }
+    }
+}
+
+void ClearLines() {
+    for (int i = rows - 1; i >= 0; i--) {
+        bool full = true;
+        for (int j = 0; j < cols; j++) {
+            if (!grid[i][j]) {
+                full = false;
+                break;
+            }
+        }
+        if (full) {
+            for (int k = i; k > 0; k--) {
+                for (int j = 0; j < cols; j++) {
+                    grid[k][j] = grid[k - 1][j];
+                }
+            }
+            for (int j = 0; j < cols; j++) {
+                grid[0][j] = 0;
+            }
+            score += 100;
+            i++;
+        }
+    }
+}
+
+void LockTetromino() {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (currentTetromino.shape[i][j]) {
+                grid[currentTetromino.y + i][currentTetromino.x + j] = 1;
+            }
+        }
+    }
+    ClearLines();
+    SpawnTetromino();
+    
+    if (CheckCollision(0, 0)) {
+        CloseWindow();
+    }
+}
+
+void MoveTetromino(int dx, int dy) {
+    if (!CheckCollision(dx, dy)) {
+        currentTetromino.x += dx;
+        currentTetromino.y += dy;
+    } else if (dy > 0) {
+        LockTetromino();
+    }
+}
+
+void DrawGrid() {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if (grid[i][j]) {
+                DrawRectangle(j * cellSize, i * cellSize, cellSize, cellSize, GRAY);
+            }
+        }
+    }
+}
+
+void DrawTetromino() {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (currentTetromino.shape[i][j]) {
+                DrawRectangle((currentTetromino.x + j) * cellSize,
+                              (currentTetromino.y + i) * cellSize,
+                              cellSize, cellSize,
+                              currentTetromino.color);
+            }
+        }
+    }
+}
+
+int main() {
+    InitWindow(screenWidth, screenHeight, "Tetris - raylib");
+    SetTargetFPS(10);
+    srand(time(nullptr));
+    SpawnTetromino();
+
+    while (!WindowShouldClose()) {
+        if (IsKeyPressed(KEY_LEFT)) MoveTetromino(-1, 0);
+        if (IsKeyPressed(KEY_RIGHT)) MoveTetromino(1, 0);
+        if (IsKeyPressed(KEY_DOWN)) MoveTetromino(0, 1);
+        if (IsKeyPressed(KEY_UP)) RotateTetromino();
+        
+        MoveTetromino(0, 1);
+        
+        BeginDrawing();
+        ClearBackground(BLACK);
+        DrawGrid();
+        DrawTetromino();
+        DrawText(TextFormat("Score: %d", score), 10, 10, 20, WHITE);
+        EndDrawing();
+    }
+
+    CloseWindow();
+    return 0;
+}
